@@ -122,7 +122,12 @@ func handleCommand(conn net.Conn, input string) bool {
 			return true
 		}
 		oldNick := manager.SetNickname(conn, newNick)
-		manager.Broadcast(conn, fmt.Sprintf("%s changed nickname to %s", oldNick, newNick))
+		if oldNick != newNick {
+			conn.Write([]byte(fmt.Sprintf("Your nickname has been changed to %s\n", newNick)))
+			manager.Broadcast(conn, fmt.Sprintf("%s changed nickname to %s", oldNick, newNick))
+		} else {
+			conn.Write([]byte("You already have that nickname.\n"))
+		}
 		return true
 
 	default:
