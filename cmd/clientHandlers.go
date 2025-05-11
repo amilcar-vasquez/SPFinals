@@ -1,15 +1,17 @@
-// file: clientHandlers.go
+// file: cmd/clientHandlers.go
 
 package main
 
 import (
+	"github.com/fatih/color"
 	"net"
 	"sync"
 )
 
 type Client struct {
-	conn     net.Conn
-	nickname string
+	conn      net.Conn
+	nickname  string
+	colorFunc func(format string, a ...interface{}) string
 }
 
 type ClientManager struct {
@@ -21,13 +23,27 @@ var manager = ClientManager{
 	clients: make(map[net.Conn]*Client),
 }
 
-// Add a client to the manager
+var colorFuncs = []func(string, ...interface{}) string{
+	color.HiBlueString,
+	color.HiGreenString,
+	color.HiRedString,
+	color.HiMagentaString,
+	color.HiCyanString,
+	color.HiWhiteString,
+}
+
+// Add a new client to the manager
 func (m *ClientManager) Add(conn net.Conn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	// Pick a color using round-robin or hash on IP
+	colorFunc := colorFuncs[len(m.clients)%len(colorFuncs)]
+
 	m.clients[conn] = &Client{
-		conn:     conn,
-		nickname: "", // Default empty nickname
+		conn:      conn,
+		nickname:  "",
+		colorFunc: colorFunc,
 	}
 }
 
@@ -41,10 +57,22 @@ func (m *ClientManager) Remove(conn net.Conn) {
 // Broadcast message to all clients except sender
 func (m *ClientManager) Broadcast(sender net.Conn, message string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	for conn, client := range m.clients {
-		if conn != sender {
-			client.conn.Write([]byte(message + "\n"))
+	clientsCopy := make([]*Client, 0, len(m.clients))
+	senderClient := m.clients[sender]
+	for _, client := range m.clients {
+		if client.conn != sender {
+			clientsCopy = append(clientsCopy, client)
+		}
+	}
+	m.mu.Unlock()
+
+	colored := senderClient.colorFunc(message)
+	for _, client := range clientsCopy {
+		n, err := client.conn.Write([]byte(colored + "\n"))
+		if err != nil {
+			metrics.IncrementFailedWrite(client.conn)
+		} else {
+			metrics.AddBytes(client.conn, n)
 		}
 	}
 }

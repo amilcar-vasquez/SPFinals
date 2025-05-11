@@ -33,6 +33,10 @@ It opens the file in append mode and creates it if it doesn't exist.
 The file permissions are set to 0644. */
 
 func createLogFile(fileName string) (*os.File, error) {
-	// Open the file in append mode, create it if it doesn't exist
-	return os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// Ensure the "log" folder exists
+	if err := os.MkdirAll("log", 0755); err != nil {
+		return nil, err
+	}
+	// Open the file in the "log" folder in append mode, create it if it doesn't exist
+	return os.OpenFile("log/"+fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 }
