@@ -56,7 +56,9 @@ func (m *ClientManager) Remove(conn net.Conn) {
 
 // Broadcast message to all clients except sender
 func (m *ClientManager) Broadcast(sender net.Conn, message string) {
+	// Locking the manager to ensure thread safety
 	m.mu.Lock()
+	// Create a copy of the clients slice to avoid concurrent map access
 	clientsCopy := make([]*Client, 0, len(m.clients))
 	senderClient := m.clients[sender]
 	for _, client := range m.clients {
